@@ -24,7 +24,7 @@ public class ItemProgressions extends JavaPlugin {
         this.listeners = new LockListeners(evaluator, lockConfig.blockedMessage, lockConfig.messageCooldownSeconds);
         Bukkit.getPluginManager().registerEvents(listeners, this);
 
-        // Tick time service and periodically decorate inventories
+        
         this.ticker = Bukkit.getScheduler().runTaskTimer(this, () -> {
             try {
                 timeService.tick();

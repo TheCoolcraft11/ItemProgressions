@@ -59,14 +59,14 @@ public class LockListeners implements Listener {
         p.sendMessage(ChatColor.translateAlternateColorCodes('&', msg));
     }
 
-    // Visual decoration helpers
+    
     private ItemStack decorateIfLocked(Player p, ItemStack stack) {
         if (stack == null || stack.getType().isAir()) return stack;
         LockEvaluator.Result r = evaluator.canUse(p, stack.getType());
         ItemMeta meta = stack.getItemMeta();
         if (meta == null) return stack;
         if (!r.allowed()) {
-            // Add glow and lore using UNBREAKING as a harmless hidden enchant
+            
             if (!meta.hasEnchant(Enchantment.UNBREAKING)) {
                 meta.addEnchant(Enchantment.UNBREAKING, 1, true);
             }
@@ -82,7 +82,7 @@ public class LockListeners implements Listener {
             meta.setLore(lore);
             stack.setItemMeta(meta);
         } else {
-            // Remove decoration if present
+            
             if (meta.hasEnchant(Enchantment.UNBREAKING)) {
                 meta.removeEnchant(Enchantment.UNBREAKING);
             }
@@ -98,9 +98,9 @@ public class LockListeners implements Listener {
         return stack;
     }
 
-    // Update the vanilla client cooldown overlay for locked materials
+    
     private void updateCooldowns(Player p) {
-        // Collect materials from player inventory to limit scope
+        
         java.util.Set<Material> mats = new java.util.HashSet<>();
         PlayerInventory inv = p.getInventory();
         for (ItemStack s : inv.getContents()) {
@@ -110,17 +110,17 @@ public class LockListeners implements Listener {
         for (ItemStack s : armor) {
             if (s != null && !s.getType().isAir()) mats.add(s.getType());
         }
-        // For each material, compute remaining and set/clear cooldown
+        
         for (Material mat : mats) {
             LockEvaluator.Result r = evaluator.canUse(p, mat);
             if (!r.allowed()) {
                 long seconds = Math.max(0L, r.remainingSeconds());
                 int ticks = (int) Math.min(Integer.MAX_VALUE, seconds * 20L);
-                // Ensure at least 1 tick so overlay shows when near unlock
+                
                 if (ticks == 0) ticks = 1;
                 p.setCooldown(mat, ticks);
             } else {
-                // Clear cooldown
+                
                 p.setCooldown(mat, 0);
             }
         }
@@ -135,14 +135,14 @@ public class LockListeners implements Listener {
 
     private void decorateInventory(Player p) {
         PlayerInventory inv = p.getInventory();
-        // Main contents
+        
         ItemStack[] contents = inv.getContents();
         for (int i = 0; i < contents.length; i++) {
             ItemStack it = contents[i];
             contents[i] = decorateIfLocked(p, it);
         }
         inv.setContents(contents);
-        // Armor and offhand
+        
         inv.setHelmet(decorateIfLocked(p, inv.getHelmet()));
         inv.setChestplate(decorateIfLocked(p, inv.getChestplate()));
         inv.setLeggings(decorateIfLocked(p, inv.getLeggings()));
@@ -183,7 +183,7 @@ public class LockListeners implements Listener {
         }
     }
 
-    // Prevent attacking with locked items
+    
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
     public void onDamage(EntityDamageByEntityEvent e) {
         if (e.getDamager() instanceof Player p) {
@@ -194,7 +194,7 @@ public class LockListeners implements Listener {
         }
     }
 
-    // Prevent bow shooting
+    
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
     public void onShootBow(EntityShootBowEvent e) {
         if (e.getEntity() instanceof Player p) {
@@ -226,7 +226,7 @@ public class LockListeners implements Listener {
         ItemStack current = e.getCurrentItem();
         ItemStack toCheck = cursor != null && !cursor.getType().isAir() ? cursor : current;
         if (toCheck == null || toCheck.getType().isAir()) {
-            // also check hotbar swap and number key
+            
             if (e.getClick() == ClickType.NUMBER_KEY) {
                 int hotbar = e.getHotbarButton();
                 if (hotbar >= 0) {
@@ -239,20 +239,20 @@ public class LockListeners implements Listener {
             return;
         }
 
-        // Result slot (crafting etc.)
+        
         if (e.getSlotType() == InventoryType.SlotType.RESULT) {
             if (check(p, toCheck.getType())) {
                 e.setCancelled(true);
                 return;
             }
         }
-        // Armor slot or moving armor via shift-click
+        
         if (e.getSlotType() == InventoryType.SlotType.ARMOR || e.isShiftClick()) {
             if (check(p, toCheck.getType())) {
                 e.setCancelled(true);
             }
         }
-        // Using number keys to equip
+        
         if (e.getClick() == ClickType.NUMBER_KEY) {
             if (check(p, toCheck.getType())) {
                 e.setCancelled(true);
