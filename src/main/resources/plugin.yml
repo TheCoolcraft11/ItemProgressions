@@ -1,0 +1,4 @@
+name: ItemProgressions
+version: '1.0-SNAPSHOT'
+main: de.thecoolcraft11.itemProgressions.ItemProgressions
+api-version: '1.21'

@@ -1,0 +1,41 @@
+# ItemProgressions example configuration
+# Define rules that lock items until specific conditions are met.
+# Each rule specifies a set of materials (supports * wildcard matching against Material enum names)
+# and an unlock condition (realtime, per-player playtime, or global server uptime).
+
+# Message shown to players when an action is blocked. Available placeholders:
+# %item% - the Material name
+# %remaining% - human readable remaining time (if applicable)
+message: "&cYou can't use %item% yet. Unlocks in %remaining%."
+
+# How often a player can get the blocked message in seconds to prevent spam
+messageCooldownSeconds: 1
+
+# List of lock rules
+locks:
+  # Example: lock all NETHERITE items until a specific real world date/time (ISO-8601)
+  - items: ["NETHERITE_*"]
+    unlock:
+      type: realtime
+      at: "2026-01-01T00:00:00Z"  # use Z for UTC or include timezone offsets
+
+  # Example: lock DIAMOND tools and armor until each player has at least 6 hours of playtime
+  - items:
+      - "DIAMOND_SWORD"
+      - "DIAMOND_AXE"
+      - "DIAMOND_PICKAXE"
+      - "DIAMOND_SHOVEL"
+      - "DIAMOND_HOE"
+      - "DIAMOND_HELMET"
+      - "DIAMOND_CHESTPLATE"
+      - "DIAMOND_LEGGINGS"
+      - "DIAMOND_BOOTS"
+    unlock:
+      type: per-player
+      seconds: 21600  # 6 hours
+
+  # Example: lock ELYTRA until server has accumulated 24 hours of uptime across restarts
+  - items: ["ELYTRA"]
+    unlock:
+      type: global
+      seconds: 86400  # 24 hours
