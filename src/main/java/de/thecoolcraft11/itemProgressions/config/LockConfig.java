@@ -93,4 +93,3 @@ public class LockConfig {
         try { return Long.parseLong(String.valueOf(o)); } catch (NumberFormatException e) { return def; }
     }
 }
-

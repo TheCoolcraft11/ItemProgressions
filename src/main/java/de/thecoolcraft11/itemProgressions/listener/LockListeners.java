@@ -32,8 +32,6 @@ public class LockListeners implements Listener {
     private final String messageTemplate;
     private final int messageCooldownSeconds;
     private final Map<UUID, Long> lastMsg = new HashMap<>();
-    // Track last cooldown ticks per player/material to avoid upward jumps near unlock
-    private final Map<UUID, Map<Material, Integer>> lastCooldowns = new HashMap<>();
 
     public LockListeners(LockEvaluator evaluator, String messageTemplate, int messageCooldownSeconds) {
         this.evaluator = evaluator;
@@ -102,6 +100,7 @@ public class LockListeners implements Listener {
 
     // Update the vanilla client cooldown overlay for locked materials
     private void updateCooldowns(Player p) {
+        // Collect materials from player inventory to limit scope
         java.util.Set<Material> mats = new java.util.HashSet<>();
         PlayerInventory inv = p.getInventory();
         for (ItemStack s : inv.getContents()) {
@@ -111,7 +110,7 @@ public class LockListeners implements Listener {
         for (ItemStack s : armor) {
             if (s != null && !s.getType().isAir()) mats.add(s.getType());
         }
-        Map<Material, Integer> prev = lastCooldowns.computeIfAbsent(p.getUniqueId(), k -> new HashMap<>());
+        // For each material, compute remaining and set/clear cooldown
         for (Material mat : mats) {
             LockEvaluator.Result r = evaluator.canUse(p, mat);
             if (!r.allowed()) {
@@ -119,20 +118,12 @@ public class LockListeners implements Listener {
                 int ticks = (int) Math.min(Integer.MAX_VALUE, seconds * 20L);
                 // Ensure at least 1 tick so overlay shows when near unlock
                 if (ticks == 0) ticks = 1;
-                int last = prev.getOrDefault(mat, 0);
-                // Ensure cooldown is monotonic non-increasing: never jump upward
-                if (last > 0 && ticks > last) {
-                    ticks = Math.max(1, last - 1);
-                }
                 p.setCooldown(mat, ticks);
-                prev.put(mat, ticks);
             } else {
+                // Clear cooldown
                 p.setCooldown(mat, 0);
-                prev.remove(mat);
             }
         }
-        // Cleanup entries for materials no longer present
-        prev.keySet().removeIf(m -> !mats.contains(m));
     }
 
     public void tickDecorate() {
@@ -314,21 +305,6 @@ public class LockListeners implements Listener {
                     return;
                 }
             }
-        }
-    }
-
-    @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
-    public void onCraftItem(CraftItemEvent e) {
-        if (!(e.getWhoClicked() instanceof Player p)) return;
-        ItemStack result = e.getCurrentItem();
-        if (result == null || result.getType().isAir()) return;
-        if (!evaluator.canUse(p, result.getType()).allowed()) {
-            e.setCancelled(true);
-            // Also blank out the result to avoid ghost items in some clients
-            if (e.getInventory() != null) {
-                e.getInventory().setResult(new ItemStack(Material.AIR));
-            }
-            maybeNotify(p, result.getType(), evaluator.canUse(p, result.getType()).remainingSeconds());
         }
     }
 }

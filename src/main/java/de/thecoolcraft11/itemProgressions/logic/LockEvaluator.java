@@ -71,4 +71,3 @@ public class LockEvaluator {
         return sb.toString().trim();
     }
 }
-
