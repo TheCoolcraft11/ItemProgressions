@@ -14,7 +14,7 @@ messageCooldownSeconds: 1
 # List of lock rules
 locks:
   # Example: lock all NETHERITE items until a specific real world date/time (ISO-8601)
-  - items: ["NETHERITE_*"]
+  - items: [ "NETHERITE_*" ]
     unlock:
       type: realtime
       at: "2026-01-01T00:00:00Z"  # use Z for UTC or include timezone offsets
@@ -35,7 +35,7 @@ locks:
       seconds: 21600  # 6 hours
 
   # Example: lock ELYTRA until server has accumulated 24 hours of uptime across restarts
-  - items: ["ELYTRA"]
+  - items: [ "ELYTRA" ]
     unlock:
       type: global
       seconds: 86400  # 24 hours

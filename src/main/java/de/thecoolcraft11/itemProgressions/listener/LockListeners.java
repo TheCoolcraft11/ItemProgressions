@@ -1,8 +1,11 @@
 package de.thecoolcraft11.itemProgressions.listener;
 
 import de.thecoolcraft11.itemProgressions.logic.LockEvaluator;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.HumanEntity;
@@ -18,20 +21,20 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerItemConsumeEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerSwapHandItemsEvent;
+import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.inventory.ItemFlag;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 public class LockListeners implements Listener {
     private final LockEvaluator evaluator;
     private final String messageTemplate;
     private final int messageCooldownSeconds;
     private final Map<UUID, Long> lastMsg = new HashMap<>();
+    // Track when cooldowns were set to avoid resetting them every tick
+    private final Map<UUID, Map<Material, Long>> cooldownExpiry = new HashMap<>();
 
     public LockListeners(LockEvaluator evaluator, String messageTemplate, int messageCooldownSeconds) {
         this.evaluator = evaluator;
@@ -56,41 +59,60 @@ public class LockListeners implements Listener {
         String msg = messageTemplate
                 .replace("%item%", mat.name())
                 .replace("%remaining%", LockEvaluator.humanDuration(remaining));
-        p.sendMessage(ChatColor.translateAlternateColorCodes('&', msg));
+        // Use Adventure API to parse legacy color codes
+        Component component = LegacyComponentSerializer.legacyAmpersand().deserialize(msg);
+        p.sendMessage(component);
     }
 
-    
+
     private ItemStack decorateIfLocked(Player p, ItemStack stack) {
         if (stack == null || stack.getType().isAir()) return stack;
         LockEvaluator.Result r = evaluator.canUse(p, stack.getType());
         ItemMeta meta = stack.getItemMeta();
         if (meta == null) return stack;
         if (!r.allowed()) {
-            
+            // Add enchant glow
             if (!meta.hasEnchant(Enchantment.UNBREAKING)) {
                 meta.addEnchant(Enchantment.UNBREAKING, 1, true);
             }
             meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
-            String loreLine = ChatColor.translateAlternateColorCodes('&', "&cLocked: unlocks in " + LockEvaluator.humanDuration(r.remainingSeconds()));
-            java.util.List<String> lore = meta.hasLore() ? meta.getLore() : new java.util.ArrayList<>();
-            if (lore == null) lore = new java.util.ArrayList<>();
-            if (lore.isEmpty() || !ChatColor.stripColor(lore.get(0)).toLowerCase().startsWith("locked:")) {
-                lore.add(0, loreLine);
-            } else {
-                lore.set(0, loreLine);
+
+            // Create locked lore line using Adventure API
+            Component loreLine = Component.text("Locked: unlocks in " + LockEvaluator.humanDuration(r.remainingSeconds()))
+                    .color(NamedTextColor.RED)
+                    .decoration(TextDecoration.ITALIC, false);
+
+            List<Component> lore = meta.lore();
+            if (lore == null) lore = new ArrayList<>();
+
+            // Check if first line is a lock message
+            boolean hasLockLine = false;
+            if (!lore.isEmpty()) {
+                String plainText = LegacyComponentSerializer.legacySection().serialize(lore.getFirst()).toLowerCase();
+                hasLockLine = plainText.contains("locked:");
             }
-            meta.setLore(lore);
+
+            if (hasLockLine) {
+                lore.set(0, loreLine);
+            } else {
+                lore.addFirst(loreLine);
+            }
+
+            meta.lore(lore);
             stack.setItemMeta(meta);
         } else {
-            
+            // Remove enchant glow
             if (meta.hasEnchant(Enchantment.UNBREAKING)) {
                 meta.removeEnchant(Enchantment.UNBREAKING);
             }
-            if (meta.hasLore()) {
-                java.util.List<String> lore = meta.getLore();
-                if (lore != null && !lore.isEmpty() && ChatColor.stripColor(lore.get(0)).toLowerCase().startsWith("locked:")) {
-                    lore.remove(0);
-                    meta.setLore(lore);
+
+            // Remove locked lore line
+            List<Component> lore = meta.lore();
+            if (lore != null && !lore.isEmpty()) {
+                String plainText = LegacyComponentSerializer.legacySection().serialize(lore.getFirst()).toLowerCase();
+                if (plainText.contains("locked:")) {
+                    lore.removeFirst();
+                    meta.lore(lore);
                 }
             }
             stack.setItemMeta(meta);
@@ -98,10 +120,10 @@ public class LockListeners implements Listener {
         return stack;
     }
 
-    
+
     private void updateCooldowns(Player p) {
-        
-        java.util.Set<Material> mats = new java.util.HashSet<>();
+        // Collect all materials in player's inventory
+        Set<Material> mats = new HashSet<>();
         PlayerInventory inv = p.getInventory();
         for (ItemStack s : inv.getContents()) {
             if (s != null && !s.getType().isAir()) mats.add(s.getType());
@@ -110,20 +132,34 @@ public class LockListeners implements Listener {
         for (ItemStack s : armor) {
             if (s != null && !s.getType().isAir()) mats.add(s.getType());
         }
-        
+
+        UUID uuid = p.getUniqueId();
+        Map<Material, Long> playerCooldowns = cooldownExpiry.computeIfAbsent(uuid, k -> new HashMap<>());
+        long currentTime = System.currentTimeMillis();
+
         for (Material mat : mats) {
             LockEvaluator.Result r = evaluator.canUse(p, mat);
             if (!r.allowed()) {
                 long seconds = Math.max(0L, r.remainingSeconds());
-                int ticks = (int) Math.min(Integer.MAX_VALUE, seconds * 20L);
-                
-                if (ticks == 0) ticks = 1;
-                p.setCooldown(mat, ticks);
+                long expiryTime = currentTime + (seconds * 1000L);
+
+                // Only set cooldown if it's not already set or if it has expired
+                Long existingExpiry = playerCooldowns.get(mat);
+                if (existingExpiry == null || currentTime >= existingExpiry) {
+                    int ticks = (int) Math.min(Integer.MAX_VALUE, seconds * 20L);
+                    if (ticks == 0) ticks = 1;
+                    p.setCooldown(mat, ticks);
+                    playerCooldowns.put(mat, expiryTime);
+                }
             } else {
-                
+                // Item is unlocked, clear cooldown
                 p.setCooldown(mat, 0);
+                playerCooldowns.remove(mat);
             }
         }
+
+        // Clean up expired cooldowns from tracking
+        playerCooldowns.entrySet().removeIf(entry -> currentTime >= entry.getValue());
     }
 
     public void tickDecorate() {
@@ -135,14 +171,14 @@ public class LockListeners implements Listener {
 
     private void decorateInventory(Player p) {
         PlayerInventory inv = p.getInventory();
-        
+
         ItemStack[] contents = inv.getContents();
         for (int i = 0; i < contents.length; i++) {
             ItemStack it = contents[i];
             contents[i] = decorateIfLocked(p, it);
         }
         inv.setContents(contents);
-        
+
         inv.setHelmet(decorateIfLocked(p, inv.getHelmet()));
         inv.setChestplate(decorateIfLocked(p, inv.getChestplate()));
         inv.setLeggings(decorateIfLocked(p, inv.getLeggings()));
@@ -168,7 +204,6 @@ public class LockListeners implements Listener {
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
     public void onConsume(PlayerItemConsumeEvent e) {
         ItemStack item = e.getItem();
-        if (item == null) return;
         if (check(e.getPlayer(), item.getType())) {
             e.setCancelled(true);
         }
@@ -177,24 +212,23 @@ public class LockListeners implements Listener {
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
     public void onBlockPlace(BlockPlaceEvent e) {
         ItemStack item = e.getItemInHand();
-        if (item == null) return;
         if (check(e.getPlayer(), item.getType())) {
             e.setCancelled(true);
         }
     }
 
-    
+
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
     public void onDamage(EntityDamageByEntityEvent e) {
         if (e.getDamager() instanceof Player p) {
             ItemStack inHand = p.getInventory().getItemInMainHand();
-            if (inHand != null && !inHand.getType().isAir() && check(p, inHand.getType())) {
+            if (!inHand.getType().isAir() && check(p, inHand.getType())) {
                 e.setCancelled(true);
             }
         }
     }
 
-    
+
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
     public void onShootBow(EntityShootBowEvent e) {
         if (e.getEntity() instanceof Player p) {
@@ -220,13 +254,24 @@ public class LockListeners implements Listener {
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
+    public void onCraftItem(CraftItemEvent e) {
+        if (!(e.getWhoClicked() instanceof Player p)) return;
+        ItemStack result = e.getRecipe().getResult();
+        if (!result.getType().isAir()) {
+            if (check(p, result.getType())) {
+                e.setCancelled(true);
+            }
+        }
+    }
+
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
     public void onInventoryClick(InventoryClickEvent e) {
         if (!(e.getWhoClicked() instanceof Player p)) return;
         ItemStack cursor = e.getCursor();
         ItemStack current = e.getCurrentItem();
-        ItemStack toCheck = cursor != null && !cursor.getType().isAir() ? cursor : current;
+        ItemStack toCheck = !cursor.getType().isAir() ? cursor : current;
         if (toCheck == null || toCheck.getType().isAir()) {
-            
+
             if (e.getClick() == ClickType.NUMBER_KEY) {
                 int hotbar = e.getHotbarButton();
                 if (hotbar >= 0) {
@@ -239,20 +284,20 @@ public class LockListeners implements Listener {
             return;
         }
 
-        
+
         if (e.getSlotType() == InventoryType.SlotType.RESULT) {
             if (check(p, toCheck.getType())) {
                 e.setCancelled(true);
                 return;
             }
         }
-        
+
         if (e.getSlotType() == InventoryType.SlotType.ARMOR || e.isShiftClick()) {
             if (check(p, toCheck.getType())) {
                 e.setCancelled(true);
             }
         }
-        
+
         if (e.getClick() == ClickType.NUMBER_KEY) {
             if (check(p, toCheck.getType())) {
                 e.setCancelled(true);
@@ -264,7 +309,7 @@ public class LockListeners implements Listener {
     public void onInventoryDrag(InventoryDragEvent e) {
         if (!(e.getWhoClicked() instanceof Player p)) return;
         ItemStack cursor = e.getOldCursor();
-        if (cursor != null && !cursor.getType().isAir() && check(p, cursor.getType())) {
+        if (!cursor.getType().isAir() && check(p, cursor.getType())) {
             e.setCancelled(true);
         }
     }
@@ -274,8 +319,7 @@ public class LockListeners implements Listener {
         Player p = e.getPlayer();
         ItemStack main = e.getMainHandItem();
         ItemStack off = e.getOffHandItem();
-        if ((main != null && !main.getType().isAir() && check(p, main.getType())) ||
-            (off != null && !off.getType().isAir() && check(p, off.getType()))) {
+        if (!main.getType().isAir() && check(p, main.getType()) || !off.getType().isAir() && check(p, off.getType())) {
             e.setCancelled(true);
         }
     }

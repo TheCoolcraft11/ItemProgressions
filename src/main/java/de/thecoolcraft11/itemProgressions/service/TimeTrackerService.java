@@ -1,5 +1,6 @@
 package de.thecoolcraft11.itemProgressions.service;
 
+import de.thecoolcraft11.itemProgressions.ItemProgressions;
 import org.bukkit.Bukkit;
 import org.bukkit.Server;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -9,6 +10,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 
 public class TimeTrackerService {
@@ -53,7 +55,7 @@ public class TimeTrackerService {
         try {
             cfg.save(file);
         } catch (IOException e) {
-            e.printStackTrace();
+            ItemProgressions.getPlugin(ItemProgressions.class).getLogger().warning("Could not save time data!: " + e.getMessage());
         }
     }
 
@@ -62,12 +64,13 @@ public class TimeTrackerService {
         FileConfiguration cfg = YamlConfiguration.loadConfiguration(file);
         this.globalSeconds = cfg.getLong("globalSeconds", 0L);
         if (cfg.isConfigurationSection("players")) {
-            for (String key : cfg.getConfigurationSection("players").getKeys(false)) {
+            for (String key : Objects.requireNonNull(cfg.getConfigurationSection("players")).getKeys(false)) {
                 try {
                     UUID id = UUID.fromString(key);
                     long secs = (long) cfg.getDouble("players." + key, 0D);
                     playerSeconds.put(id, secs);
-                } catch (IllegalArgumentException ignored) { }
+                } catch (IllegalArgumentException ignored) {
+                }
             }
         }
     }

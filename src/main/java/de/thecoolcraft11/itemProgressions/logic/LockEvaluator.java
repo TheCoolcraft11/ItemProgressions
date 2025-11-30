@@ -7,15 +7,8 @@ import org.bukkit.entity.Player;
 
 import java.time.Instant;
 
-public class LockEvaluator {
-    private final LockConfig config;
-    private final TimeTrackerService time;
-
-    public record Result(boolean allowed, long remainingSeconds) {}
-
-    public LockEvaluator(LockConfig config, TimeTrackerService time) {
-        this.config = config;
-        this.time = time;
+public record LockEvaluator(LockConfig config, TimeTrackerService time) {
+    public record Result(boolean allowed, long remainingSeconds) {
     }
 
     public Result canUse(Player player, Material material) {
@@ -34,40 +27,43 @@ public class LockEvaluator {
     }
 
     private long remainingForRule(Player player, LockConfig.LockRule rule) {
-        return switch (rule.condition.type) {
-            case REALTIME -> remainingRealtime(rule.condition);
-            case PER_PLAYER -> remainingPerPlayer(player, rule.condition);
-            case GLOBAL -> remainingGlobal(rule.condition);
+        return switch (rule.condition().type()) {
+            case REALTIME -> remainingRealtime(rule.condition());
+            case PER_PLAYER -> remainingPerPlayer(player, rule.condition());
+            case GLOBAL -> remainingGlobal(rule.condition());
         };
     }
 
     private long remainingRealtime(LockConfig.UnlockCondition cond) {
-        if (cond.at == null) return 0L;
+        if (cond.at() == null) return 0L;
         long now = Instant.now().getEpochSecond();
-        long target = cond.at.getEpochSecond();
+        long target = cond.at().getEpochSecond();
         return Math.max(0, target - now);
     }
 
     private long remainingPerPlayer(Player p, LockConfig.UnlockCondition cond) {
         long have = time.getPlayerSeconds(p.getUniqueId());
-        return Math.max(0, cond.seconds - have);
+        return Math.max(0, cond.seconds() - have);
     }
 
     private long remainingGlobal(LockConfig.UnlockCondition cond) {
         long have = time.getGlobalSeconds();
-        return Math.max(0, cond.seconds - have);
+        return Math.max(0, cond.seconds() - have);
     }
 
     public static String humanDuration(long seconds) {
         if (seconds <= 0) return "0s";
-        long d = seconds / 86400; seconds %= 86400;
-        long h = seconds / 3600; seconds %= 3600;
-        long m = seconds / 60; long s = seconds % 60;
+        long d = seconds / 86400;
+        seconds %= 86400;
+        long h = seconds / 3600;
+        seconds %= 3600;
+        long m = seconds / 60;
+        long s = seconds % 60;
         StringBuilder sb = new StringBuilder();
         if (d > 0) sb.append(d).append("d ");
         if (h > 0) sb.append(h).append("h ");
         if (m > 0) sb.append(m).append("m ");
-        if (s > 0 || sb.length()==0) sb.append(s).append("s");
+        if (s > 0 || sb.isEmpty()) sb.append(s).append("s");
         return sb.toString().trim();
     }
 }

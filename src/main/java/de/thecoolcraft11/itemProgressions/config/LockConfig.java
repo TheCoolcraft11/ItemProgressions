@@ -5,28 +5,20 @@ import org.bukkit.configuration.file.FileConfiguration;
 
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 public class LockConfig {
-    public static class UnlockCondition {
-        public enum Type { REALTIME, PER_PLAYER, GLOBAL }
-        public final Type type;
-        public final long seconds;
-        public final Instant at;
-        public UnlockCondition(Type type, long seconds, Instant at) {
-            this.type = type;
-            this.seconds = seconds;
-            this.at = at;
-        }
+    public record UnlockCondition(Type type, long seconds, Instant at) {
+        public enum Type {REALTIME, PER_PLAYER, GLOBAL}
+
     }
-    public static class LockRule {
-        public final List<Pattern> itemPatterns;
-        public final UnlockCondition condition;
-        public LockRule(List<Pattern> itemPatterns, UnlockCondition condition) {
-            this.itemPatterns = itemPatterns;
-            this.condition = condition;
-        }
+
+    public record LockRule(List<Pattern> itemPatterns, UnlockCondition condition) {
+
         public boolean matches(Material mat) {
             String name = mat.name();
             for (Pattern p : itemPatterns) {
@@ -68,7 +60,10 @@ public class LockConfig {
                     type = UnlockCondition.Type.REALTIME;
                     Object atObj = unlock.get("at");
                     if (atObj != null) {
-                        try { at = Instant.parse(String.valueOf(atObj)); } catch (DateTimeParseException ignored) {}
+                        try {
+                            at = Instant.parse(String.valueOf(atObj));
+                        } catch (DateTimeParseException ignored) {
+                        }
                     }
                 }
                 case "per-player", "perplayer", "player" -> {
@@ -79,7 +74,9 @@ public class LockConfig {
                     type = UnlockCondition.Type.GLOBAL;
                     seconds = asLong(unlock.get("seconds"), 0L);
                 }
-                default -> { continue; }
+                default -> {
+                    continue;
+                }
             }
 
             UnlockCondition condition = new UnlockCondition(type, seconds, at);
@@ -90,6 +87,10 @@ public class LockConfig {
     private static long asLong(Object o, long def) {
         if (o == null) return def;
         if (o instanceof Number n) return n.longValue();
-        try { return Long.parseLong(String.valueOf(o)); } catch (NumberFormatException e) { return def; }
+        try {
+            return Long.parseLong(String.valueOf(o));
+        } catch (NumberFormatException e) {
+            return def;
+        }
     }
 }
