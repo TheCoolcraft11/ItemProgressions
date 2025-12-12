@@ -9,10 +9,13 @@ import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.HumanEntity;
+import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.Action;
+import org.bukkit.event.block.BlockDropItemEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityShootBowEvent;
@@ -25,6 +28,7 @@ import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
 
@@ -33,13 +37,16 @@ public class LockListeners implements Listener {
     private final String messageTemplate;
     private final int messageCooldownSeconds;
     private final Map<UUID, Long> lastMsg = new HashMap<>();
-    // Track when cooldowns were set to avoid resetting them every tick
+
     private final Map<UUID, Map<Material, Long>> cooldownExpiry = new HashMap<>();
 
-    public LockListeners(LockEvaluator evaluator, String messageTemplate, int messageCooldownSeconds) {
+    private final boolean allowBreaking;
+
+    public LockListeners(LockEvaluator evaluator, String messageTemplate, int messageCooldownSeconds, boolean allowBreaking) {
         this.evaluator = evaluator;
         this.messageTemplate = messageTemplate;
         this.messageCooldownSeconds = messageCooldownSeconds;
+        this.allowBreaking = allowBreaking;
     }
 
     private boolean check(Player p, Material mat) {
@@ -59,7 +66,7 @@ public class LockListeners implements Listener {
         String msg = messageTemplate
                 .replace("%item%", mat.name())
                 .replace("%remaining%", LockEvaluator.humanDuration(remaining));
-        // Use Adventure API to parse legacy color codes
+
         Component component = LegacyComponentSerializer.legacyAmpersand().deserialize(msg);
         p.sendMessage(component);
     }
@@ -71,13 +78,13 @@ public class LockListeners implements Listener {
         ItemMeta meta = stack.getItemMeta();
         if (meta == null) return stack;
         if (!r.allowed()) {
-            // Add enchant glow
+
             if (!meta.hasEnchant(Enchantment.UNBREAKING)) {
                 meta.addEnchant(Enchantment.UNBREAKING, 1, true);
             }
             meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
 
-            // Create locked lore line using Adventure API
+
             Component loreLine = Component.text("Locked: unlocks in " + LockEvaluator.humanDuration(r.remainingSeconds()))
                     .color(NamedTextColor.RED)
                     .decoration(TextDecoration.ITALIC, false);
@@ -85,7 +92,7 @@ public class LockListeners implements Listener {
             List<Component> lore = meta.lore();
             if (lore == null) lore = new ArrayList<>();
 
-            // Check if first line is a lock message
+
             boolean hasLockLine = false;
             if (!lore.isEmpty()) {
                 String plainText = LegacyComponentSerializer.legacySection().serialize(lore.getFirst()).toLowerCase();
@@ -101,12 +108,12 @@ public class LockListeners implements Listener {
             meta.lore(lore);
             stack.setItemMeta(meta);
         } else {
-            // Remove enchant glow
+
             if (meta.hasEnchant(Enchantment.UNBREAKING)) {
                 meta.removeEnchant(Enchantment.UNBREAKING);
             }
 
-            // Remove locked lore line
+
             List<Component> lore = meta.lore();
             if (lore != null && !lore.isEmpty()) {
                 String plainText = LegacyComponentSerializer.legacySection().serialize(lore.getFirst()).toLowerCase();
@@ -122,7 +129,7 @@ public class LockListeners implements Listener {
 
 
     private void updateCooldowns(Player p) {
-        // Collect all materials in player's inventory
+
         Set<Material> mats = new HashSet<>();
         PlayerInventory inv = p.getInventory();
         for (ItemStack s : inv.getContents()) {
@@ -143,7 +150,7 @@ public class LockListeners implements Listener {
                 long seconds = Math.max(0L, r.remainingSeconds());
                 long expiryTime = currentTime + (seconds * 1000L);
 
-                // Only set cooldown if it's not already set or if it has expired
+
                 Long existingExpiry = playerCooldowns.get(mat);
                 if (existingExpiry == null || currentTime >= existingExpiry) {
                     int ticks = (int) Math.min(Integer.MAX_VALUE, seconds * 20L);
@@ -152,13 +159,13 @@ public class LockListeners implements Listener {
                     playerCooldowns.put(mat, expiryTime);
                 }
             } else {
-                // Item is unlocked, clear cooldown
+
                 p.setCooldown(mat, 0);
                 playerCooldowns.remove(mat);
             }
         }
 
-        // Clean up expired cooldowns from tracking
+
         playerCooldowns.entrySet().removeIf(entry -> currentTime >= entry.getValue());
     }
 
@@ -194,6 +201,7 @@ public class LockListeners implements Listener {
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
     public void onInteract(PlayerInteractEvent e) {
+        if (e.getAction() == Action.LEFT_CLICK_BLOCK && allowBreaking) return;
         ItemStack item = e.getItem();
         if (item == null) return;
         if (check(e.getPlayer(), item.getType())) {
@@ -351,4 +359,17 @@ public class LockListeners implements Listener {
             }
         }
     }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onBlockDropItem(BlockDropItemEvent event) {
+        Player player = event.getPlayer();
+        @NotNull List<Item> items = event.getItems();
+        items.forEach(item -> {
+            ItemStack stack = item.getItemStack();
+            if (check(player, stack.getType())) {
+                item.remove();
+            }
+        });
+    }
+
 }

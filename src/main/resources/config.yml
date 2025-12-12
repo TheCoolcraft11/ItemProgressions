@@ -11,6 +11,9 @@ message: "&cYou can't use %item% yet. Unlocks in %remaining%."
 # How often a player can get the blocked message in seconds to prevent spam
 messageCooldownSeconds: 1
 
+#Allow breaking of locked blocks
+allowBreaking: true
+
 # List of lock rules
 locks:
   # Example: lock all NETHERITE items until a specific real world date/time (ISO-8601)

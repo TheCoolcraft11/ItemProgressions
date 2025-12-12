@@ -23,14 +23,14 @@ public class ItemProgressions extends JavaPlugin {
         this.timeService = new TimeTrackerService(getDataFolder());
 
         LockEvaluator evaluator = new LockEvaluator(lockConfig, timeService);
-        this.listeners = new LockListeners(evaluator, lockConfig.blockedMessage, lockConfig.messageCooldownSeconds);
+        this.listeners = new LockListeners(evaluator, lockConfig.blockedMessage, lockConfig.messageCooldownSeconds, lockConfig.allowBreaking);
         Bukkit.getPluginManager().registerEvents(listeners, this);
 
 
         this.ticker = Bukkit.getScheduler().runTaskTimer(this, () -> {
             try {
                 timeService.tick();
-                listeners.tickDecorate();
+                if (listeners != null) listeners.tickDecorate();
             } catch (Throwable t) {
                 getLogger().severe("Error while ticking time tracker!: " + t.getMessage());
             }

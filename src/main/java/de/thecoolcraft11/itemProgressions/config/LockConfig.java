@@ -31,10 +31,13 @@ public class LockConfig {
     public final List<LockRule> rules = new ArrayList<>();
     public final String blockedMessage;
     public final int messageCooldownSeconds;
+    
+    public final boolean allowBreaking;
 
     public LockConfig(FileConfiguration cfg) {
         this.blockedMessage = cfg.getString("message", "&cYou can't use %item% yet. Unlocks in %remaining%.");
         this.messageCooldownSeconds = cfg.getInt("messageCooldownSeconds", 1);
+        this.allowBreaking = cfg.getBoolean("allowBreaking", false);
 
         List<Map<?, ?>> list = cfg.getMapList("locks");
         for (Map<?, ?> raw : list) {
