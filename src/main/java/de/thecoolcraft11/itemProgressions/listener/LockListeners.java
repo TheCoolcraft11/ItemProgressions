@@ -7,6 +7,7 @@ import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.World;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Item;
@@ -18,12 +19,10 @@ import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockDropItemEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.EntityResurrectEvent;
 import org.bukkit.event.entity.EntityShootBowEvent;
 import org.bukkit.event.inventory.*;
-import org.bukkit.event.player.PlayerInteractEvent;
-import org.bukkit.event.player.PlayerItemConsumeEvent;
-import org.bukkit.event.player.PlayerJoinEvent;
-import org.bukkit.event.player.PlayerSwapHandItemsEvent;
+import org.bukkit.event.player.*;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
@@ -65,6 +64,19 @@ public class LockListeners implements Listener {
         lastMsg.put(p.getUniqueId(), now + messageCooldownSeconds * 1000L);
         String msg = messageTemplate
                 .replace("%item%", mat.name())
+                .replace("%remaining%", LockEvaluator.humanDuration(remaining));
+
+        Component component = LegacyComponentSerializer.legacyAmpersand().deserialize(msg);
+        p.sendMessage(component);
+    }
+
+    private void maybeNotify(Player p, World.Environment dimension, long remaining) {
+        long now = System.currentTimeMillis();
+        long next = lastMsg.getOrDefault(p.getUniqueId(), 0L);
+        if (now < next) return;
+        lastMsg.put(p.getUniqueId(), now + messageCooldownSeconds * 1000L);
+        String msg = messageTemplate
+                .replace("%item%", dimension.name())
                 .replace("%remaining%", LockEvaluator.humanDuration(remaining));
 
         Component component = LegacyComponentSerializer.legacyAmpersand().deserialize(msg);
@@ -197,6 +209,22 @@ public class LockListeners implements Listener {
     public void onJoin(PlayerJoinEvent e) {
         decorateInventory(e.getPlayer());
         updateCooldowns(e.getPlayer());
+    }
+
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
+    public void onTeleport(PlayerTeleportEvent e) {
+        Player p = e.getPlayer();
+        World fromWorld = e.getFrom().getWorld();
+        World toWorld = e.getTo().getWorld();
+
+        if (fromWorld != null && toWorld != null && !fromWorld.equals(toWorld)) {
+            World.Environment toEnv = toWorld.getEnvironment();
+            LockEvaluator.Result r = evaluator.canEnterDimension(p, toEnv);
+            if (!r.allowed()) {
+                e.setCancelled(true);
+                maybeNotify(p, toEnv, r.remainingSeconds());
+            }
+        }
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
@@ -370,6 +398,17 @@ public class LockListeners implements Listener {
                 item.remove();
             }
         });
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onEntityResurrect(EntityResurrectEvent event) {
+        if (event.getEntity() instanceof Player player) {
+            ItemStack item = player.getInventory().getItemInMainHand();
+            ItemStack offhand = player.getInventory().getItemInOffHand();
+            if (check(player, item.getType()) || check(player, offhand.getType())) {
+                event.setCancelled(true);
+            }
+        }
     }
 
 }

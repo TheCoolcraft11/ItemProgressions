@@ -1,6 +1,7 @@
 package de.thecoolcraft11.itemProgressions.config;
 
 import org.bukkit.Material;
+import org.bukkit.World;
 import org.bukkit.configuration.file.FileConfiguration;
 
 import java.time.Instant;
@@ -28,10 +29,14 @@ public class LockConfig {
         }
     }
 
+    public record DimensionLockRule(World.Environment dimension, UnlockCondition condition) {
+    }
+
     public final List<LockRule> rules = new ArrayList<>();
+    public final List<DimensionLockRule> dimensionLocks = new ArrayList<>();
     public final String blockedMessage;
     public final int messageCooldownSeconds;
-    
+
     public final boolean allowBreaking;
 
     public LockConfig(FileConfiguration cfg) {
@@ -84,6 +89,53 @@ public class LockConfig {
 
             UnlockCondition condition = new UnlockCondition(type, seconds, at);
             rules.add(new LockRule(patterns, condition));
+        }
+
+        // Load dimension locks
+        List<Map<?, ?>> dimList = cfg.getMapList("dimensionLocks");
+        for (Map<?, ?> raw : dimList) {
+            Object dimObj = raw.get("dimension");
+            if (dimObj == null) continue;
+
+            World.Environment env;
+            try {
+                env = World.Environment.valueOf(String.valueOf(dimObj).toUpperCase(Locale.ROOT));
+            } catch (IllegalArgumentException ignored) {
+                continue;
+            }
+
+            Object unlockObj = raw.get("unlock");
+            if (!(unlockObj instanceof Map<?, ?> unlock)) continue;
+            String typeStr = String.valueOf(unlock.get("type")).toLowerCase(Locale.ROOT);
+            UnlockCondition.Type type;
+            long seconds = 0L;
+            Instant at = null;
+            switch (typeStr) {
+                case "realtime" -> {
+                    type = UnlockCondition.Type.REALTIME;
+                    Object atObj = unlock.get("at");
+                    if (atObj != null) {
+                        try {
+                            at = Instant.parse(String.valueOf(atObj));
+                        } catch (DateTimeParseException ignored) {
+                        }
+                    }
+                }
+                case "per-player", "perplayer", "player" -> {
+                    type = UnlockCondition.Type.PER_PLAYER;
+                    seconds = asLong(unlock.get("seconds"), 0L);
+                }
+                case "global", "server" -> {
+                    type = UnlockCondition.Type.GLOBAL;
+                    seconds = asLong(unlock.get("seconds"), 0L);
+                }
+                default -> {
+                    continue;
+                }
+            }
+
+            UnlockCondition condition = new UnlockCondition(type, seconds, at);
+            dimensionLocks.add(new DimensionLockRule(env, condition));
         }
     }
 

@@ -13,6 +13,21 @@ messageCooldownSeconds: 1
 
 #Allow breaking of locked blocks
 allowBreaking: true
+ 
+# Lock dimensions - prevent players from entering until conditions are met
+# Same unlock condition syntax as items
+dimensionLocks:
+# Example: lock the Nether until a specific date/time
+# - dimension: NETHER
+#   unlock:
+#     type: realtime
+#     at: "2026-01-01T00:00:00Z"
+
+# Example: lock the End until each player has 10 hours of playtime
+# - dimension: THE_END
+#   unlock:
+#     type: per-player
+#     seconds: 36000  # 10 hours
 
 # List of lock rules
 locks:

@@ -3,6 +3,7 @@ package de.thecoolcraft11.itemProgressions.logic;
 import de.thecoolcraft11.itemProgressions.config.LockConfig;
 import de.thecoolcraft11.itemProgressions.service.TimeTrackerService;
 import org.bukkit.Material;
+import org.bukkit.World;
 import org.bukkit.entity.Player;
 
 import java.time.Instant;
@@ -16,7 +17,7 @@ public record LockEvaluator(LockConfig config, TimeTrackerService time) {
         boolean blocked = false;
         for (LockConfig.LockRule rule : config.rules) {
             if (!rule.matches(material)) continue;
-            long rem = remainingForRule(player, rule);
+            long rem = remainingForRule(player, rule.condition());
             if (rem > 0) {
                 blocked = true;
                 if (rem > worstRemaining) worstRemaining = rem;
@@ -24,6 +25,29 @@ public record LockEvaluator(LockConfig config, TimeTrackerService time) {
         }
         if (!blocked) return new Result(true, 0);
         return new Result(false, worstRemaining);
+    }
+
+    public Result canEnterDimension(Player player, World.Environment dimension) {
+        long worstRemaining = 0L;
+        boolean blocked = false;
+        for (LockConfig.DimensionLockRule rule : config.dimensionLocks) {
+            if (!rule.dimension().equals(dimension)) continue;
+            long rem = remainingForRule(player, rule.condition());
+            if (rem > 0) {
+                blocked = true;
+                if (rem > worstRemaining) worstRemaining = rem;
+            }
+        }
+        if (!blocked) return new Result(true, 0);
+        return new Result(false, worstRemaining);
+    }
+
+    private long remainingForRule(Player player, LockConfig.UnlockCondition condition) {
+        return switch (condition.type()) {
+            case REALTIME -> remainingRealtime(condition);
+            case PER_PLAYER -> remainingPerPlayer(player, condition);
+            case GLOBAL -> remainingGlobal(condition);
+        };
     }
 
     private long remainingForRule(Player player, LockConfig.LockRule rule) {
