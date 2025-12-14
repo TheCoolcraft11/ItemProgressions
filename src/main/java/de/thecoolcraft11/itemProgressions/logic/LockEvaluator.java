@@ -7,6 +7,8 @@ import org.bukkit.World;
 import org.bukkit.entity.Player;
 
 import java.time.Instant;
+import java.util.HashSet;
+import java.util.Set;
 
 public record LockEvaluator(LockConfig config, TimeTrackerService time) {
     public record Result(boolean allowed, long remainingSeconds) {
@@ -89,5 +91,18 @@ public record LockEvaluator(LockConfig config, TimeTrackerService time) {
         if (m > 0) sb.append(m).append("m ");
         if (s > 0 || sb.isEmpty()) sb.append(s).append("s");
         return sb.toString().trim();
+    }
+
+    public Set<Material> getAllLockedMaterials() {
+        Set<Material> result = new HashSet<>();
+        for (Material mat : Material.values()) {
+            for (LockConfig.LockRule rule : config.rules) {
+                if (rule.matches(mat)) {
+                    result.add(mat);
+                    break;
+                }
+            }
+        }
+        return result;
     }
 }

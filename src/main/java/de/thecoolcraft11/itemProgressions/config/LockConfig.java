@@ -15,11 +15,10 @@ import java.util.regex.Pattern;
 public class LockConfig {
     public record UnlockCondition(Type type, long seconds, Instant at) {
         public enum Type {REALTIME, PER_PLAYER, GLOBAL}
-
     }
 
-    public record LockRule(List<Pattern> itemPatterns, UnlockCondition condition) {
-
+    public record LockRule(List<Pattern> itemPatterns, UnlockCondition condition, String displayName, String iconId,
+                           String description) {
         public boolean matches(Material mat) {
             String name = mat.name();
             for (Pattern p : itemPatterns) {
@@ -29,14 +28,14 @@ public class LockConfig {
         }
     }
 
-    public record DimensionLockRule(World.Environment dimension, UnlockCondition condition) {
+    public record DimensionLockRule(World.Environment dimension, UnlockCondition condition, String displayName,
+                                    String iconId, String description) {
     }
 
     public final List<LockRule> rules = new ArrayList<>();
     public final List<DimensionLockRule> dimensionLocks = new ArrayList<>();
     public final String blockedMessage;
     public final int messageCooldownSeconds;
-
     public final boolean allowBreaking;
 
     public LockConfig(FileConfiguration cfg) {
@@ -87,11 +86,15 @@ public class LockConfig {
                 }
             }
 
+            String iconId = strOrNull(unlock.get("icon"));
+            String displayName = strOrNull(unlock.get("name"));
+            String description = strOrNull(unlock.get("description"));
+
             UnlockCondition condition = new UnlockCondition(type, seconds, at);
-            rules.add(new LockRule(patterns, condition));
+            rules.add(new LockRule(patterns, condition, displayName, iconId, description));
         }
 
-        // Load dimension locks
+        
         List<Map<?, ?>> dimList = cfg.getMapList("dimensionLocks");
         for (Map<?, ?> raw : dimList) {
             Object dimObj = raw.get("dimension");
@@ -134,8 +137,12 @@ public class LockConfig {
                 }
             }
 
+            String iconId = strOrNull(unlock.get("icon"));
+            String displayName = strOrNull(unlock.get("name"));
+            String description = strOrNull(unlock.get("description"));
+
             UnlockCondition condition = new UnlockCondition(type, seconds, at);
-            dimensionLocks.add(new DimensionLockRule(env, condition));
+            dimensionLocks.add(new DimensionLockRule(env, condition, displayName, iconId, description));
         }
     }
 
@@ -148,4 +155,11 @@ public class LockConfig {
             return def;
         }
     }
+
+    private static String strOrNull(Object o) {
+        if (o == null) return null;
+        String s = String.valueOf(o).trim();
+        return s.isEmpty() ? null : s;
+    }
 }
+

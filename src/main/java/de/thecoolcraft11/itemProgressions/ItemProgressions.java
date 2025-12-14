@@ -1,5 +1,6 @@
 package de.thecoolcraft11.itemProgressions;
 
+import de.thecoolcraft11.itemProgressions.advancement.ItemAdvancementManager;
 import de.thecoolcraft11.itemProgressions.config.LockConfig;
 import de.thecoolcraft11.itemProgressions.listener.LockListeners;
 import de.thecoolcraft11.itemProgressions.logic.LockEvaluator;
@@ -23,7 +24,8 @@ public class ItemProgressions extends JavaPlugin {
         this.timeService = new TimeTrackerService(getDataFolder());
 
         LockEvaluator evaluator = new LockEvaluator(lockConfig, timeService);
-        this.listeners = new LockListeners(evaluator, lockConfig.blockedMessage, lockConfig.messageCooldownSeconds, lockConfig.allowBreaking);
+        ItemAdvancementManager advancementManager = new ItemAdvancementManager(this, evaluator, getConfig());
+        this.listeners = new LockListeners(evaluator, lockConfig.blockedMessage, lockConfig.messageCooldownSeconds, lockConfig.allowBreaking, advancementManager);
         Bukkit.getPluginManager().registerEvents(listeners, this);
 
 

@@ -13,21 +13,68 @@ messageCooldownSeconds: 1
 
 #Allow breaking of locked blocks
 allowBreaking: true
- 
+
+itemAdvancements:
+  # Enable or disable advancement creation completely
+  enabled: true
+  tab:
+    key: "itemprogressions:locked_items"
+    title: "Locked Items"
+    description: "Items managed by ItemProgressions"
+    icon: "minecraft:barrier"
+    background: "minecraft:textures/gui/advancements/backgrounds/adventure.png"
+  # Grid layout for item advancements: false = linear (all under their rule), true = grid
+  # gridLayout: false = linear
+  # gridLayout: "columns" = vertical columns (2 items per column, separated by dummy dividers)
+  # gridLayout: "square" = 2-column grid with dummy dividers between blocks
+  # gridLayout: "auto" = optimal square grid (e.g., 16 items -> 4x4) with dummy dividers at end of each row
+  gridLayout: false
+  # gridWidth only applies to square and auto grid modes
+  gridWidth: 2
+  defaults:
+    # Type-specific description templates used for each locked item advancement
+    # Placeholders:
+    # %name% - display name (Bukkit item translation name by default, or from lock rule 'name')
+    # %time% - formatted date/time for realtime locks
+    # %playtime% - human-readable duration for per-player locks
+    # %servertime% - human-readable duration for global locks
+    realtimeDescription: "%name% can be used at %time%"
+    perPlayerDescription: "%name% can be used after %playtime%"
+    globalDescription: "%name% can be used after %servertime%"
+    # Date format for realtime unlock times (SimpleDateFormat pattern)
+    # Examples: "yyyy-MM-dd HH:mm:ss Z", "MMM dd, yyyy", "yyyy-MM-dd"
+    dateFormat: "yyyy-MM-dd HH:mm:ss Z"
+    # Default name: empty string uses Bukkit's item translation name (e.g., "Diamond Sword")
+    # Specify a name here to override all items' default names globally
+    name: ""
+    # Default icon: empty string uses the material itself as the icon (e.g., "minecraft:diamond_sword")
+    # Specify an icon here to use as fallback for all items (e.g., "minecraft:barrier")
+    icon: ""
+  # Per-item overrides by material name in lowercase (not used for descriptions now)
+  rules:
+  # diamond_sword:
+  #   icon: "minecraft:diamond_sword"
+
 # Lock dimensions - prevent players from entering until conditions are met
 # Same unlock condition syntax as items
 dimensionLocks:
-# Example: lock the Nether until a specific date/time
-# - dimension: NETHER
-#   unlock:
-#     type: realtime
-#     at: "2026-01-01T00:00:00Z"
+  # Example: lock the Nether until a specific date/time
+  - dimension: NETHER
+    unlock:
+      type: realtime
+      at: "2026-01-01T00:00:00Z"
+      icon: "minecraft:netherrack"
+      name: "The Nether"
+      description: "Master the dangers of the Nether"
 
-# Example: lock the End until each player has 10 hours of playtime
-# - dimension: THE_END
-#   unlock:
-#     type: per-player
-#     seconds: 36000  # 10 hours
+  # Example: lock the End until each player has 10 hours of playtime
+  - dimension: THE_END
+    unlock:
+      type: per-player
+      seconds: 36000  # 10 hours
+      icon: "minecraft:end_stone"
+      name: "The End"
+      description: "Reach the End after 10 hours of gameplay"
 
 # List of lock rules
 locks:
@@ -36,6 +83,9 @@ locks:
     unlock:
       type: realtime
       at: "2026-01-01T00:00:00Z"  # use Z for UTC or include timezone offsets
+      icon: "minecraft:netherite_ingot"
+      name: "Netherite Items"
+      description: "Master of the Nether, Netherite gear is the ultimate endgame"
 
   # Example: lock DIAMOND tools and armor until each player has at least 6 hours of playtime
   - items:
@@ -51,9 +101,15 @@ locks:
     unlock:
       type: per-player
       seconds: 21600  # 6 hours
+      icon: "minecraft:diamond"
+      name: "Diamond Gear"
+      description: "Diamond tools unlock after 6 hours of gameplay"
 
   # Example: lock ELYTRA until server has accumulated 24 hours of uptime across restarts
   - items: [ "ELYTRA" ]
     unlock:
       type: global
       seconds: 86400  # 24 hours
+      icon: "minecraft:elytra"
+      name: "Elytra"
+      description: "Master the skies with Elytra"

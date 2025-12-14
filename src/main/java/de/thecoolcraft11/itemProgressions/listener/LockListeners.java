@@ -16,6 +16,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
+import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockDropItemEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
@@ -41,11 +42,22 @@ public class LockListeners implements Listener {
 
     private final boolean allowBreaking;
 
+    private final AdvancementGranting advancementGranting;
+
+    public interface AdvancementGranting {
+        void grantIfUnlocked(Player p, Material mat);
+    }
+
     public LockListeners(LockEvaluator evaluator, String messageTemplate, int messageCooldownSeconds, boolean allowBreaking) {
+        this(evaluator, messageTemplate, messageCooldownSeconds, allowBreaking, null);
+    }
+
+    public LockListeners(LockEvaluator evaluator, String messageTemplate, int messageCooldownSeconds, boolean allowBreaking, AdvancementGranting advancementGranting) {
         this.evaluator = evaluator;
         this.messageTemplate = messageTemplate;
         this.messageCooldownSeconds = messageCooldownSeconds;
         this.allowBreaking = allowBreaking;
+        this.advancementGranting = advancementGranting;
     }
 
     private boolean check(Player p, Material mat) {
@@ -174,6 +186,9 @@ public class LockListeners implements Listener {
 
                 p.setCooldown(mat, 0);
                 playerCooldowns.remove(mat);
+                if (advancementGranting != null) {
+                    advancementGranting.grantIfUnlocked(p, mat);
+                }
             }
         }
 
@@ -207,8 +222,13 @@ public class LockListeners implements Listener {
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
     public void onJoin(PlayerJoinEvent e) {
-        decorateInventory(e.getPlayer());
-        updateCooldowns(e.getPlayer());
+        Player p = e.getPlayer();
+        decorateInventory(p);
+        updateCooldowns(p);
+
+        if (advancementGranting instanceof de.thecoolcraft11.itemProgressions.advancement.ItemAdvancementManager manager) {
+            manager.grantRootAndRules(p);
+        }
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
@@ -223,16 +243,21 @@ public class LockListeners implements Listener {
             if (!r.allowed()) {
                 e.setCancelled(true);
                 maybeNotify(p, toEnv, r.remainingSeconds());
+            } else {
+                
+                if (advancementGranting instanceof de.thecoolcraft11.itemProgressions.advancement.ItemAdvancementManager manager) {
+                    manager.grantDimensionIfUnlocked(p, toEnv);
+                }
             }
         }
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
     public void onInteract(PlayerInteractEvent e) {
-        if (e.getAction() == Action.LEFT_CLICK_BLOCK && allowBreaking) return;
         ItemStack item = e.getItem();
         if (item == null) return;
         if (check(e.getPlayer(), item.getType())) {
+            if (e.getAction() == Action.LEFT_CLICK_BLOCK && allowBreaking) return;
             e.setCancelled(true);
         }
     }
@@ -400,6 +425,7 @@ public class LockListeners implements Listener {
         });
     }
 
+
     @EventHandler(ignoreCancelled = true)
     public void onEntityResurrect(EntityResurrectEvent event) {
         if (event.getEntity() instanceof Player player) {
@@ -408,6 +434,16 @@ public class LockListeners implements Listener {
             if (check(player, item.getType()) || check(player, offhand.getType())) {
                 event.setCancelled(true);
             }
+        }
+    }
+
+
+    @EventHandler(ignoreCancelled = true)
+    public void onBlockBreak(BlockBreakEvent event) {
+        Player player = event.getPlayer();
+        ItemStack item = player.getInventory().getItemInMainHand();
+        if (check(player, item.getType())) {
+            event.setCancelled(true);
         }
     }
 
