@@ -2,3 +2,6 @@ name: ItemProgressions
 version: '1.0-SNAPSHOT'
 main: de.thecoolcraft11.itemProgressions.ItemProgressions
 api-version: '1.21'
+description: A plugin that allows locking items and dimensions based on time based conditions.
+author: TheCoolcraft11
+website: https://github.com/TheCoolcraft11/SharedHearts
