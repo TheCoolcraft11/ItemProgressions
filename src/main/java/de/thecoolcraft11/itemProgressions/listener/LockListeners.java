@@ -20,6 +20,7 @@ import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockDropItemEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.EntityResurrectEvent;
 import org.bukkit.event.entity.EntityShootBowEvent;
 import org.bukkit.event.inventory.*;
@@ -244,7 +245,7 @@ public class LockListeners implements Listener {
                 e.setCancelled(true);
                 maybeNotify(p, toEnv, r.remainingSeconds());
             } else {
-                
+
                 if (advancementGranting instanceof de.thecoolcraft11.itemProgressions.advancement.ItemAdvancementManager manager) {
                     manager.grantDimensionIfUnlocked(p, toEnv);
                 }
@@ -425,6 +426,23 @@ public class LockListeners implements Listener {
         });
     }
 
+    @EventHandler(ignoreCancelled = true)
+    public void onEntityDeath(EntityDeathEvent event) {
+        if (event.getEntity() instanceof Player) return;
+        Player killer = event.getEntity().getKiller();
+        if (killer == null) return;
+
+        List<ItemStack> drops = event.getDrops();
+        Iterator<ItemStack> it = drops.iterator();
+        while (it.hasNext()) {
+            ItemStack stack = it.next();
+            if (stack == null || stack.getType().isAir()) continue;
+            if (check(killer, stack.getType())) {
+                it.remove();
+            }
+        }
+    }
+
 
     @EventHandler(ignoreCancelled = true)
     public void onEntityResurrect(EntityResurrectEvent event) {
@@ -446,5 +464,6 @@ public class LockListeners implements Listener {
             event.setCancelled(true);
         }
     }
+
 
 }
