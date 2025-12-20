@@ -7,6 +7,7 @@ import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
 import org.bukkit.World;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.HumanEntity;
@@ -61,7 +62,14 @@ public class LockListeners implements Listener {
         this.advancementGranting = advancementGranting;
     }
 
+    private boolean hasBypass(Player p, Material mat) {
+        NamespacedKey key = mat.getKey();
+        String perm = "itemprogressions.bypass." + key.getKey().toLowerCase(Locale.ROOT);
+        return p.hasPermission(perm);
+    }
+
     private boolean check(Player p, Material mat) {
+        if (hasBypass(p, mat)) return false;
         LockEvaluator.Result r = evaluator.canUse(p, mat);
         if (!r.allowed()) {
             maybeNotify(p, mat, r.remainingSeconds());
@@ -99,7 +107,8 @@ public class LockListeners implements Listener {
 
     private ItemStack decorateIfLocked(Player p, ItemStack stack) {
         if (stack == null || stack.getType().isAir()) return stack;
-        LockEvaluator.Result r = evaluator.canUse(p, stack.getType());
+        boolean bypass = hasBypass(p, stack.getType());
+        LockEvaluator.Result r = bypass ? new LockEvaluator.Result(true, 0) : evaluator.canUse(p, stack.getType());
         ItemMeta meta = stack.getItemMeta();
         if (meta == null) return stack;
         if (!r.allowed()) {
@@ -170,6 +179,11 @@ public class LockListeners implements Listener {
         long currentTime = System.currentTimeMillis();
 
         for (Material mat : mats) {
+            if (hasBypass(p, mat)) {
+                p.setCooldown(mat, 0);
+                playerCooldowns.remove(mat);
+                continue;
+            }
             LockEvaluator.Result r = evaluator.canUse(p, mat);
             if (!r.allowed()) {
                 long seconds = Math.max(0L, r.remainingSeconds());
@@ -307,6 +321,7 @@ public class LockListeners implements Listener {
         if (result == null) return;
         for (HumanEntity viewer : e.getViewers()) {
             if (viewer instanceof Player p) {
+                if (hasBypass(p, result.getType())) continue;
                 if (!evaluator.canUse(p, result.getType()).allowed()) {
                     e.getInventory().setResult(new ItemStack(Material.AIR));
                     return;
@@ -392,6 +407,7 @@ public class LockListeners implements Listener {
         if (result == null) return;
         for (HumanEntity viewer : e.getViewers()) {
             if (viewer instanceof Player p) {
+                if (hasBypass(p, result.getType())) continue;
                 if (!evaluator.canUse(p, result.getType()).allowed()) {
                     e.setResult(new ItemStack(Material.AIR));
                     return;
@@ -406,6 +422,7 @@ public class LockListeners implements Listener {
         if (result == null) return;
         for (HumanEntity viewer : e.getViewers()) {
             if (viewer instanceof Player p) {
+                if (hasBypass(p, result.getType())) continue;
                 if (!evaluator.canUse(p, result.getType()).allowed()) {
                     e.setResult(new ItemStack(Material.AIR));
                     return;
@@ -420,6 +437,7 @@ public class LockListeners implements Listener {
         @NotNull List<Item> items = event.getItems();
         items.forEach(item -> {
             ItemStack stack = item.getItemStack();
+            if (hasBypass(player, stack.getType())) return;
             if (check(player, stack.getType())) {
                 item.remove();
             }
@@ -437,6 +455,7 @@ public class LockListeners implements Listener {
         while (it.hasNext()) {
             ItemStack stack = it.next();
             if (stack == null || stack.getType().isAir()) continue;
+            if (hasBypass(killer, stack.getType())) continue;
             if (check(killer, stack.getType())) {
                 it.remove();
             }
@@ -449,7 +468,7 @@ public class LockListeners implements Listener {
         if (event.getEntity() instanceof Player player) {
             ItemStack item = player.getInventory().getItemInMainHand();
             ItemStack offhand = player.getInventory().getItemInOffHand();
-            if (check(player, item.getType()) || check(player, offhand.getType())) {
+            if (!hasBypass(player, item.getType()) && check(player, item.getType()) || !hasBypass(player, offhand.getType()) && check(player, offhand.getType())) {
                 event.setCancelled(true);
             }
         }
@@ -460,6 +479,7 @@ public class LockListeners implements Listener {
     public void onBlockBreak(BlockBreakEvent event) {
         Player player = event.getPlayer();
         ItemStack item = player.getInventory().getItemInMainHand();
+        if (hasBypass(player, item.getType())) return;
         if (check(player, item.getType())) {
             event.setCancelled(true);
         }

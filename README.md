@@ -82,3 +82,9 @@ locks:
       icon: "minecraft:netherite_ingot"
       name: "Netherite Items"
 ```
+
+# Permissions
+
+- `itemprogressions.bypass.<item_name>`: allows bypassing locks for a specific item (e.g.,
+  `itemprogressions.bypass.DIAMOND_SWORD`).
+- `itemprogressions.bypass.*`: allows bypassing all locks.
