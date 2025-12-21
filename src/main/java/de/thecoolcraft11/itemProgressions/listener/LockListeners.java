@@ -430,9 +430,7 @@ public class LockListeners implements Listener {
         @NotNull List<Item> items = event.getItems();
         items.forEach(item -> {
             ItemStack stack = item.getItemStack();
-            System.out.println("B 1");
             if (hasBypass(player, stack.getType())) return;
-            System.out.println("B 2");
             if (evaluator.isGloballyLocked(stack.getType()) || check(player, stack.getType())) {
                 item.remove();
             }
@@ -447,20 +445,14 @@ public class LockListeners implements Listener {
         Iterator<ItemStack> it = drops.iterator();
         while (it.hasNext()) {
             ItemStack stack = it.next();
-            System.out.println("B 1");
             if (stack == null || stack.getType().isAir()) continue;
-            System.out.println("B 2");
             if (evaluator.isGloballyLocked(stack.getType())) {
-                System.out.println("B 3");
                 it.remove();
                 continue;
             }
-            System.out.println("B 4");
             if (killer == null) continue;
             if (hasBypass(killer, stack.getType())) continue;
-            System.out.println("B 5");
             if (check(killer, stack.getType())) {
-                System.out.println("B 6");
                 it.remove();
             }
         }
