@@ -9,7 +9,6 @@ import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.World;
-import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
@@ -26,7 +25,6 @@ import org.bukkit.event.entity.EntityResurrectEvent;
 import org.bukkit.event.entity.EntityShootBowEvent;
 import org.bukkit.event.inventory.*;
 import org.bukkit.event.player.*;
-import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -113,11 +111,7 @@ public class LockListeners implements Listener {
         if (meta == null) return stack;
         if (!r.allowed()) {
 
-            if (!meta.hasEnchant(Enchantment.UNBREAKING)) {
-                meta.addEnchant(Enchantment.UNBREAKING, 1, true);
-            }
-            meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
-
+            meta.setEnchantmentGlintOverride(true);
 
             Component loreLine = Component.text("Locked: unlocks in " + LockEvaluator.humanDuration(r.remainingSeconds()))
                     .color(NamedTextColor.RED)
@@ -125,7 +119,6 @@ public class LockListeners implements Listener {
 
             List<Component> lore = meta.lore();
             if (lore == null) lore = new ArrayList<>();
-
 
             boolean hasLockLine = false;
             if (!lore.isEmpty()) {
@@ -142,9 +135,9 @@ public class LockListeners implements Listener {
             meta.lore(lore);
             stack.setItemMeta(meta);
         } else {
-
-            if (meta.hasEnchant(Enchantment.UNBREAKING)) {
-                meta.removeEnchant(Enchantment.UNBREAKING);
+            // Only remove the glint override if the item has no enchantments
+            if (meta.hasEnchantmentGlintOverride() && meta.getEnchants().isEmpty()) {
+                meta.setEnchantmentGlintOverride(false);
             }
 
 
@@ -437,8 +430,10 @@ public class LockListeners implements Listener {
         @NotNull List<Item> items = event.getItems();
         items.forEach(item -> {
             ItemStack stack = item.getItemStack();
+            System.out.println("B 1");
             if (hasBypass(player, stack.getType())) return;
-            if (check(player, stack.getType())) {
+            System.out.println("B 2");
+            if (evaluator.isGloballyLocked(stack.getType()) || check(player, stack.getType())) {
                 item.remove();
             }
         });
@@ -448,15 +443,24 @@ public class LockListeners implements Listener {
     public void onEntityDeath(EntityDeathEvent event) {
         if (event.getEntity() instanceof Player) return;
         Player killer = event.getEntity().getKiller();
-        if (killer == null) return;
-
         List<ItemStack> drops = event.getDrops();
         Iterator<ItemStack> it = drops.iterator();
         while (it.hasNext()) {
             ItemStack stack = it.next();
+            System.out.println("B 1");
             if (stack == null || stack.getType().isAir()) continue;
+            System.out.println("B 2");
+            if (evaluator.isGloballyLocked(stack.getType())) {
+                System.out.println("B 3");
+                it.remove();
+                continue;
+            }
+            System.out.println("B 4");
+            if (killer == null) continue;
             if (hasBypass(killer, stack.getType())) continue;
+            System.out.println("B 5");
             if (check(killer, stack.getType())) {
+                System.out.println("B 6");
                 it.remove();
             }
         }
