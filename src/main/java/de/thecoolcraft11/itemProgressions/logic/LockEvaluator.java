@@ -110,7 +110,7 @@ public record LockEvaluator(LockConfig config, TimeTrackerService time) {
         for (LockConfig.LockRule rule : config.rules) {
             if (!rule.matches(material)) continue;
             LockConfig.UnlockCondition cond = rule.condition();
-            if ((cond.type() == LockConfig.UnlockCondition.Type.GLOBAL && remainingGlobal(cond) > 0) || (cond.type() == LockConfig.UnlockCondition.Type.REALTIME || remainingRealtime(cond) > 0)) {
+            if ((cond.type() == LockConfig.UnlockCondition.Type.GLOBAL && remainingGlobal(cond) > 0) || (cond.type() == LockConfig.UnlockCondition.Type.REALTIME && remainingRealtime(cond) > 0)) {
                 return true;
             }
         }
