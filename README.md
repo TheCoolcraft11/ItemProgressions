@@ -67,6 +67,22 @@ itemAdvancements:
     globalDescription: "%name% can be used after %servertime%"
     icon: "minecraft:barrier"
 
+dimensionLocks:
+  - dimension: NETHER
+    unlock:
+      type: realtime
+      at: "2026-01-01T15:00:00+01:00"
+      name: "The Nether"
+      icon: "minecraft:netherrack"
+      description: "The Nether unlocks on January 1st, 2026"
+  - dimension: THE_END
+    unlock:
+      type: realtime
+      at: "2027-01-01T00:00:00+01:00"
+      name: "The End"
+      icon: "minecraft:end_stone"
+      description: "The End unlocks on January 1st, 2027"
+
 locks:
   - items: [ "DIAMOND_*" ]
     unlock:

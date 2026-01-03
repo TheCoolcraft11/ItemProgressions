@@ -37,11 +37,13 @@ public class LockConfig {
     public final String blockedMessage;
     public final int messageCooldownSeconds;
     public final boolean allowBreaking;
+    public final boolean allowDropping;
 
     public LockConfig(FileConfiguration cfg) {
         this.blockedMessage = cfg.getString("message", "&cYou can't use %item% yet. Unlocks in %remaining%.");
         this.messageCooldownSeconds = cfg.getInt("messageCooldownSeconds", 1);
         this.allowBreaking = cfg.getBoolean("allowBreaking", false);
+        this.allowDropping = cfg.getBoolean("allowDropping", false);
 
         List<Map<?, ?>> list = cfg.getMapList("locks");
         for (Map<?, ?> raw : list) {
@@ -94,7 +96,7 @@ public class LockConfig {
             rules.add(new LockRule(patterns, condition, displayName, iconId, description));
         }
 
-        
+
         List<Map<?, ?>> dimList = cfg.getMapList("dimensionLocks");
         for (Map<?, ?> raw : dimList) {
             Object dimObj = raw.get("dimension");

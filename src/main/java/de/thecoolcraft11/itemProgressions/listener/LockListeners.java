@@ -41,6 +41,7 @@ public class LockListeners implements Listener {
     private final Map<UUID, Map<Material, Long>> cooldownExpiry = new HashMap<>();
 
     private final boolean allowBreaking;
+    private final boolean allowDropping;
 
     private final AdvancementGranting advancementGranting;
 
@@ -48,15 +49,12 @@ public class LockListeners implements Listener {
         void grantIfUnlocked(Player p, Material mat);
     }
 
-    public LockListeners(LockEvaluator evaluator, String messageTemplate, int messageCooldownSeconds, boolean allowBreaking) {
-        this(evaluator, messageTemplate, messageCooldownSeconds, allowBreaking, null);
-    }
-
-    public LockListeners(LockEvaluator evaluator, String messageTemplate, int messageCooldownSeconds, boolean allowBreaking, AdvancementGranting advancementGranting) {
+    public LockListeners(LockEvaluator evaluator, String messageTemplate, int messageCooldownSeconds, boolean allowBreaking, boolean allowDropping, AdvancementGranting advancementGranting) {
         this.evaluator = evaluator;
         this.messageTemplate = messageTemplate;
         this.messageCooldownSeconds = messageCooldownSeconds;
         this.allowBreaking = allowBreaking;
+        this.allowDropping = allowDropping;
         this.advancementGranting = advancementGranting;
     }
 
@@ -135,7 +133,7 @@ public class LockListeners implements Listener {
             meta.lore(lore);
             stack.setItemMeta(meta);
         } else {
-            // Only remove the glint override if the item has no enchantments
+
             if (meta.hasEnchantmentGlintOverride() && meta.getEnchants().isEmpty()) {
                 meta.setEnchantmentGlintOverride(false);
             }
@@ -426,6 +424,7 @@ public class LockListeners implements Listener {
 
     @EventHandler(ignoreCancelled = true)
     public void onBlockDropItem(BlockDropItemEvent event) {
+        if (allowDropping) return;
         Player player = event.getPlayer();
         @NotNull List<Item> items = event.getItems();
         items.forEach(item -> {
@@ -439,6 +438,7 @@ public class LockListeners implements Listener {
 
     @EventHandler(ignoreCancelled = true)
     public void onEntityDeath(EntityDeathEvent event) {
+        if (allowDropping) return;
         if (event.getEntity() instanceof Player) return;
         Player killer = event.getEntity().getKiller();
         List<ItemStack> drops = event.getDrops();

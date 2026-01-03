@@ -11,8 +11,11 @@ message: "&cYou can't use %item% yet. Unlocks in %remaining%."
 # How often a player can get the blocked message in seconds to prevent spam
 messageCooldownSeconds: 1
 
-#Allow breaking of locked blocks
+# Allow breaking of locked blocks
 allowBreaking: true
+
+# Allow dropping of locked items (if false, players cannot drop locked items from their inventory)
+allowDropping: false
 
 itemAdvancements:
   # Enable or disable advancement creation completely

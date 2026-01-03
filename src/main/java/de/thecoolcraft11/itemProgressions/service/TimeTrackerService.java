@@ -18,7 +18,7 @@ public class TimeTrackerService {
     private final Map<UUID, Long> playerSeconds = new HashMap<>();
     private long globalSeconds = 0L;
 
-    private long lastTickMillis = System.currentTimeMillis();
+    private long lastTickNanos = System.nanoTime();
 
     public TimeTrackerService(File dataFolder) {
         this.file = new File(dataFolder, "time-data.yml");
@@ -26,10 +26,12 @@ public class TimeTrackerService {
     }
 
     public synchronized void tick() {
-        long now = System.currentTimeMillis();
-        long delta = Math.max(0L, now - lastTickMillis);
-        lastTickMillis = now;
-        long add = delta / 1000L;
+        long currentNanos = System.nanoTime();
+        long deltaNanos = Math.max(0L, currentNanos - lastTickNanos);
+        lastTickNanos = currentNanos;
+
+        
+        long add = deltaNanos / 1_000_000_000L;
         if (add <= 0) return;
 
         globalSeconds += add;

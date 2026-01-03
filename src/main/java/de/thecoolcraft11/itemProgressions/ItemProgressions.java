@@ -25,7 +25,7 @@ public class ItemProgressions extends JavaPlugin {
 
         LockEvaluator evaluator = new LockEvaluator(lockConfig, timeService);
         ItemAdvancementManager advancementManager = new ItemAdvancementManager(this, evaluator, getConfig());
-        this.listeners = new LockListeners(evaluator, lockConfig.blockedMessage, lockConfig.messageCooldownSeconds, lockConfig.allowBreaking, advancementManager);
+        this.listeners = new LockListeners(evaluator, lockConfig.blockedMessage, lockConfig.messageCooldownSeconds, lockConfig.allowBreaking, lockConfig.allowDropping, advancementManager);
         Bukkit.getPluginManager().registerEvents(listeners, this);
 
 
